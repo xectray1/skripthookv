@@ -623,7 +623,84 @@ MainBox1:AddSlider("WalkSpeedMultiplier", {
     Callback = function(value)
         WalkSpeedMultiplier = value
     end,
-})
+});
+MainBox1:AddToggle("voidenabled", {
+    Text = "void desync",
+    Default = false,
+}):AddKeyPicker("voidenabledkey", {
+    Default = "Y",
+    NoUI = false,
+    Text = "void",
+    SyncToggleState = false,
+    Callback = function(Value)
+        if Toggles.voidenabled.Value then
+            is_enabled = Value;
+        end;
+    end;
+});
+(getgenv()).clientcframe = (getgenv()).clientcframe or { Connections = {}, History = {} };
+local data = (getgenv()).clientcframe
+for _, conn in pairs(data.Connections) do
+    if conn.Connected then conn:Disconnect(); end;
+end;
+data.Connections = {};
+data.History = {};
+local runservice = game:GetService("RunService");
+local uis = cloneref(game:GetService("UserInputService"));
+local localplayer = game:GetService("Players").LocalPlayer;
+local character = localplayer.Character or localplayer.CharacterAdded:Wait();
+local primarypart = character:WaitForChild("HumanoidRootPart");
+local client_cframe = primarypart.CFrame;
+local function add_to_history()
+    if primarypart and primarypart.Parent then
+        local realpos = primarypart.Position;
+        table.insert(data.History, realpos);
+        if #data.History > 50 then
+            table.remove(data.History, 1);
+        end;
+    end;
+end;
+if not data.IndexHook then
+    local __index; __index = hookmetamethod(game, "__index", newcclosure(function(self, property)
+        if not checkcaller() and self == primarypart and property == "CFrame" then
+            return client_cframe;
+        end;
+        return __index(self, property);
+    end));
+    data.IndexHook = true;
+end;
+table.insert(data.Connections, localplayer.CharacterAdded:Connect(function(newchar)
+    character = newchar;
+    primarypart = newchar:WaitForChild("HumanoidRootPart");
+    humanoid = newchar:WaitForChild("Humanoid");
+    client_cframe = primarypart.CFrame;
+    data.History  = {};
+    task.wait(1);
+end));
+local function targetcframe()
+    if not primarypart then return client_cframe; end;
+    local basePos = primarypart.Position;
+    local X = math.random(-500, 500)
+    local Y = 500
+    local Z = math.random(-500, 500)
+    return CFrame.new(X, Y, Z);
+end;
+table.insert(data.Connections, runservice.Heartbeat:Connect(function()
+    if not (primarypart and primarypart.Parent) then return; end;
+    client_cframe = primarypart.CFrame;
+    if tick() % 0.2 < 0.03 then
+        add_to_history();
+    end;
+    local humanoid = localplayer.Character:WaitForChild("Humanoid");
+    if is_enabled and isnetworkowner(primarypart) then
+        local target = targetcframe();
+        primarypart.CFrame = target;
+    else
+        primarypart.CFrame = client_cframe;
+    end;
+    runservice.RenderStepped:Wait();
+    primarypart.CFrame = client_cframe;
+end));
 Library.KeybindFrame.Visible = true;
 local MenuGroup = Tabs['settings']:AddLeftGroupbox('ui')
 MenuGroup:AddLabel('toggle ui'):AddKeyPicker("uitoggle", { Default = 'End', NoUI = true, Text = 'UI Bind' })
